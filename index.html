@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediAI - Advanced Medical Diagnosis Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <script src="https://unpkg.com/splitting@1.0.6/dist/splitting.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/splitting@1.0.6/dist/splitting.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .medical-grid { background-image: radial-gradient(circle at 1px 1px, rgba(37, 99, 235, 0.05) 1px, transparent 0); background-size: 20px 20px; }
+        .ai-glow { box-shadow: 0 0 20px rgba(37, 99, 235, 0.3); }
+        .prediction-card { backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.95); }
+        .confidence-meter { background: linear-gradient(90deg, #dc2626 0%, #d97706 50%, #059669 100%); }
+        .processing-pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .upload-zone { border: 2px dashed #2563eb; transition: all 0.3s ease; }
+        .upload-zone.dragover { border-color: #059669; background-color: rgba(5, 150, 105, 0.1); }
+        .stat-counter { font-size: 2.5rem; font-weight: 700; color: #2563eb; }
+        .nav-link { position: relative; transition: all 0.3s ease; }
+        .nav-link:hover { color: #2563eb; }
+        .nav-link.active::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px; background: #2563eb; }
+        #p5-background { position: fixed; top: 0; left: 0; z-index: -1; opacity: 0.3; }
+    </style>
+</head>
+<body class="bg-gray-50 medical-grid min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+                        <span class="text-xl font-bold text-gray-900">MediAI</span>
+                    </div>
+                    <div class="hidden md:flex items-center space-x-1">
+                        <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">LIVE</span>
+                        <span class="text-sm text-gray-500 mono">System Active</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-8">
+                    <a href="index.html" class="nav-link active text-gray-900 font-medium">Dashboard</a>
+                    <a href="patients.html" class="nav-link text-gray-600 font-medium">Patients</a>
+                    <a href="analytics.html" class="nav-link text-gray-600 font-medium">Analytics</a>
+                    <div class="flex items-center space-x-2">
+                        <img src="https://kimi-web-img.moonshot.cn/img/media.istockphoto.com/c6ab48b27b3311b0d399df06468070e546ee2fd3.jpg" alt="Dr. Sarah Chen" class="w-8 h-8 rounded-full object-cover">
+                        <span class="text-sm font-medium text-gray-700">Dr. Sarah Chen</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="relative py-12 overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center">
+                <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4" data-splitting>
+                    Advanced AI Medical Diagnosis
+                </h1>
+                <p class="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+                    Leveraging cutting-edge artificial intelligence to assist healthcare professionals in rapid, accurate medical image analysis
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Live Stats Dashboard -->
+    <section class="py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Patients Today</p>
+                            <p class="stat-counter mono" id="patients-count">0</p>
+                        </div>
+                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Avg Wait Time</p>
+                            <p class="text-2xl font-bold text-gray-900 mono">2.3s</p>
+                        </div>
+                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">AI Accuracy</p>
+                            <p class="text-2xl font-bold text-gray-900 mono" id="accuracy-percent">94.7%</p>
+                        </div>
+                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Active Queue</p>
+                            <p class="text-2xl font-bold text-gray-900 mono" id="queue-count">3</p>
+                        </div>
+                        <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main AI Interface -->
+    <section class="py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Image Upload Section -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6">Upload Medical Image</h2>
+                    
+                    <!-- Upload Zone -->
+                    <div id="upload-zone" class="upload-zone rounded-lg p-8 text-center mb-6 cursor-pointer">
+                        <div id="upload-content">
+                            <svg class="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                            </svg>
+                            <p class="text-lg font-medium text-gray-700 mb-2">Drop X-ray image here</p>
+                            <p class="text-sm text-gray-500">or click to browse files</p>
+                            <p class="text-xs text-gray-400 mt-2">Supports JPG, PNG, DICOM files</p>
+                        </div>
+                        <input type="file" id="file-input" class="hidden" accept="image/*">
+                    </div>
+
+                    <!-- Image Preview -->
+                    <div id="image-preview" class="hidden">
+                        <div class="relative">
+                            <img id="preview-img" src="" alt="X-ray Preview" class="w-full rounded-lg shadow-sm">
+                            <div id="processing-overlay" class="absolute inset-0 bg-black/50 rounded-lg hidden flex items-center justify-center">
+                                <div class="text-white text-center">
+                                    <div class="processing-pulse mb-2">
+                                        <svg class="w-8 h-8 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        </svg>
+                                    </div>
+                                    <p class="font-medium">AI Analyzing...</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex space-x-3">
+                            <button id="analyze-btn" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                                Analyze Image
+                            </button>
+                            <button id="clear-btn" class="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Results Section -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6">AI Analysis Results</h2>
+                    
+                    <div id="results-placeholder" class="text-center py-12">
+                        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                        </svg>
+                        <p class="text-gray-500">Upload an image to begin AI analysis</p>
+                    </div>
+
+                    <div id="results-content" class="hidden">
+                        <!-- Diagnosis Result -->
+                        <div class="mb-6">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-lg font-semibold text-gray-900">Primary Diagnosis</h3>
+                                <span id="confidence-badge" class="px-3 py-1 rounded-full text-sm font-medium">94% Confidence</span>
+                            </div>
+                            <div id="diagnosis-result" class="text-3xl font-bold text-gray-900 mb-2">Pneumonia</div>
+                            <p id="diagnosis-description" class="text-gray-600">AI model detected signs of pneumonia with high confidence. Recommend immediate clinical review.</p>
+                        </div>
+
+                        <!-- Confidence Visualization -->
+                        <div class="mb-6">
+                            <h4 class="text-sm font-medium text-gray-700 mb-3">Confidence Breakdown</h4>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Pneumonia</span>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                            <div id="pneumonia-bar" class="h-full bg-red-500 transition-all duration-1000" style="width: 94%"></div>
+                                        </div>
+                                        <span class="text-sm font-medium mono w-12">94%</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">Normal</span>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                            <div id="normal-bar" class="h-full bg-green-500 transition-all duration-1000" style="width: 5%"></div>
+                                        </div>
+                                        <span class="text-sm font-medium mono w-12">5%</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm text-gray-600">COVID-19</span>
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                            <div id="covid-bar" class="h-full bg-orange-500 transition-all duration-1000" style="width: 1%"></div>
+                                        </div>
+                                        <span class="text-sm font-medium mono w-12">1%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex space-x-3">
+                            <button id="save-record-btn" class="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors">
+                                Save to Patient Record
+                            </button>
+                            <button id="generate-report-btn" class="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                                Generate Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Recent Predictions -->
+    <section class="py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900">Recent Predictions</h2>
+                    <a href="patients.html" class="text-blue-600 hover:text-blue-700 font-medium">View All →</a>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div class="flex items-center space-x-3 mb-3">
+                            <img src="https://kimi-web-img.moonshot.cn/img/www.cvmg.com/ca547d2ab192e1be85ddc467146365fff53f63f5.jpg" alt="X-ray" class="w-16 h-16 rounded-lg object-cover">
+                            <div>
+                                <p class="font-medium text-gray-900">Patient #2847</p>
+                                <p class="text-sm text-gray-500">2 minutes ago</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded">Pneumonia</span>
+                            <span class="text-sm font-medium mono">91%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div class="flex items-center space-x-3 mb-3">
+                            <img src="https://kimi-web-img.moonshot.cn/img/brettmollard.com/bcff4ae29ce5bd1b19e56f2c87979fda8fcab9a3.jpg" alt="X-ray" class="w-16 h-16 rounded-lg object-cover">
+                            <div>
+                                <p class="font-medium text-gray-900">Patient #2846</p>
+                                <p class="text-sm text-gray-500">5 minutes ago</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">Normal</span>
+                            <span class="text-sm font-medium mono">96%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div class="flex items-center space-x-3 mb-3">
+                            <img src="https://kimi-web-img.moonshot.cn/img/static01.nyt.com/ec45b08a90a293a4b27ea2e5dc4c00ba15c2d1a3.jpg" alt="X-ray" class="w-16 h-16 rounded-lg object-cover">
+                            <div>
+                                <p class="font-medium text-gray-900">Patient #2845</p>
+                                <p class="text-sm text-gray-500">8 minutes ago</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded">COVID-19</span>
+                            <span class="text-sm font-medium mono">87%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 py-8 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center text-sm text-gray-500">
+                <p>&copy; 2025 MediAI Platform. Advanced Medical Diagnosis System.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="main.js"></script>
+</body>
+</html>

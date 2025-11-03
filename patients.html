@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Management - MediAI Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .medical-grid { background-image: radial-gradient(circle at 1px 1px, rgba(37, 99, 235, 0.05) 1px, transparent 0); background-size: 20px 20px; }
+        .patient-card { transition: all 0.3s ease; }
+        .patient-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); }
+        .search-highlight { background-color: rgba(37, 99, 235, 0.2); }
+        .timeline-item { position: relative; }
+        .timeline-item::before { content: ''; position: absolute; left: 15px; top: 0; bottom: 0; width: 2px; background: #e5e7eb; }
+        .timeline-item:last-child::before { display: none; }
+        .timeline-dot { position: relative; z-index: 1; }
+        .nav-link { position: relative; transition: all 0.3s ease; }
+        .nav-link:hover { color: #2563eb; }
+        .nav-link.active::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px; background: #2563eb; }
+    </style>
+</head>
+<body class="bg-gray-50 medical-grid min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+                        <span class="text-xl font-bold text-gray-900">MediAI</span>
+                    </div>
+                    <div class="hidden md:flex items-center space-x-1">
+                        <span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">LIVE</span>
+                        <span class="text-sm text-gray-500 mono">System Active</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-8">
+                    <a href="index.html" class="nav-link text-gray-600 font-medium">Dashboard</a>
+                    <a href="patients.html" class="nav-link active text-gray-900 font-medium">Patients</a>
+                    <a href="analytics.html" class="nav-link text-gray-600 font-medium">Analytics</a>
+                    <div class="flex items-center space-x-2">
+                        <img src="https://kimi-web-img.moonshot.cn/img/media.istockphoto.com/c6ab48b27b3311b0d399df06468070e546ee2fd3.jpg" alt="Dr. Sarah Chen" class="w-8 h-8 rounded-full object-cover">
+                        <span class="text-sm font-medium text-gray-700">Dr. Sarah Chen</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <section class="py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Patient Management</h1>
+                    <p class="text-gray-600 mt-2">Comprehensive patient records and AI diagnosis history</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="export-btn" class="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                        Export Data
+                    </button>
+                    <button id="add-patient-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                        Add Patient
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Search and Filters -->
+    <section class="pb-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="md:col-span-2">
+                        <label for="search-input" class="block text-sm font-medium text-gray-700 mb-2">Search Patients</label>
+                        <div class="relative">
+                            <input type="text" id="search-input" placeholder="Search by name, ID, or condition..." 
+                                   class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="condition-filter" class="block text-sm font-medium text-gray-700 mb-2">Condition</label>
+                        <select id="condition-filter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">All Conditions</option>
+                            <option value="Pneumonia">Pneumonia</option>
+                            <option value="Normal">Normal</option>
+                            <option value="COVID-19">COVID-19</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="date-filter" class="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
+                        <select id="date-filter" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">All Time</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Patient Grid -->
+    <section class="pb-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="patients-grid">
+                <!-- Patient cards will be dynamically generated -->
+            </div>
+            
+            <!-- Loading State -->
+            <div id="loading-state" class="text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <p class="text-gray-500 mt-4">Loading patient records...</p>
+            </div>
+            
+            <!-- No Results State -->
+            <div id="no-results" class="hidden text-center py-12">
+                <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.467-.881-6.08-2.33"/>
+                </svg>
+                <p class="text-gray-500">No patients found matching your criteria</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Patient Detail Modal -->
+    <div id="patient-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h2 id="modal-title" class="text-2xl font-bold text-gray-900">Patient Details</h2>
+                    <button id="close-modal" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Patient Information -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Patient Information</h3>
+                        <div class="space-y-4">
+                            <div class="flex items-center space-x-4">
+                                <img id="modal-patient-image" src="" alt="Patient" class="w-20 h-20 rounded-full object-cover">
+                                <div>
+                                    <h4 id="modal-patient-name" class="text-xl font-bold text-gray-900">John Doe</h4>
+                                    <p id="modal-patient-id" class="text-gray-600 mono">P1234</p>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Age</label>
+                                    <p id="modal-patient-age" class="text-gray-900">45 years</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Gender</label>
+                                    <p id="modal-patient-gender" class="text-gray-900">Male</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Last Visit</label>
+                                    <p id="modal-patient-last-visit" class="text-gray-900">Today</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Total Scans</label>
+                                    <p id="modal-patient-scans" class="text-gray-900">3</p>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Symptoms</label>
+                                <div id="modal-symptoms" class="mt-2 flex flex-wrap gap-2">
+                                    <!-- Symptoms tags will be added dynamically -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- AI Prediction History -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">AI Prediction History</h3>
+                        <div id="prediction-timeline" class="space-y-4">
+                            <!-- Timeline items will be added dynamically -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="mt-8 flex space-x-4">
+                    <button id="edit-patient-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                        Edit Patient
+                    </button>
+                    <button id="schedule-followup-btn" class="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                        Schedule Follow-up
+                    </button>
+                    <button id="generate-pdf-btn" class="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                        Generate Report
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 py-8 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center text-sm text-gray-500">
+                <p>&copy; 2025 MediAI Platform. Advanced Medical Diagnosis System.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Patient Management System
+        class PatientManager {
+            constructor() {
+                this.patients = [];
+                this.filteredPatients = [];
+                this.currentPatient = null;
+                this.searchTerm = '';
+                this.conditionFilter = '';
+                this.dateFilter = '';
+                
+                this.initializeData();
+                this.setupEventListeners();
+                this.renderPatients();
+                this.initializeAnimations();
+            }
+
+            initializeData() {
+                // Sample patient data
+                this.patients = [
+                    {
+                        id: 'P2847',
+                        name: 'Sarah Johnson',
+                        age: 34,
+                        gender: 'Female',
+                        image: 'https://kimi-web-img.moonshot.cn/img/img.freepik.com/1dae55c5462bc294f8629bfd0538e967301ff5ed.jpg',
+                        lastVisit: new Date(),
+                        totalScans: 2,
+                        symptoms: ['Cough', 'Fever', 'Chest Pain'],
+                        predictions: [
+                            {
+                                date: new Date(Date.now() - 2 * 60 * 60 * 1000),
+                                condition: 'Pneumonia',
+                                confidence: 91,
+                                image: 'https://kimi-web-img.moonshot.cn/img/www.cvmg.com/ca547d2ab192e1be85ddc467146365fff53f63f5.jpg',
+                                notes: 'Bilateral pneumonia detected in lower lobes'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'P2846',
+                        name: 'Michael Chen',
+                        age: 28,
+                        gender: 'Male',
+                        image: 'https://kimi-web-img.moonshot.cn/img/media.istockphoto.com/c6ab48b27b3311b0d399df06468070e546ee2fd3.jpg',
+                        lastVisit: new Date(Date.now() - 5 * 60 * 60 * 1000),
+                        totalScans: 1,
+                        symptoms: ['Routine Checkup'],
+                        predictions: [
+                            {
+                                date: new Date(Date.now() - 5 * 60 * 60 * 1000),
+                                condition: 'Normal',
+                                confidence: 96,
+                                image: 'https://kimi-web-img.moonshot.cn/img/brettmollard.com/bcff4ae29ce5bd1b19e56f2c87979fda8fcab9a3.jpg',
+                                notes: 'Clear lung fields, normal cardiac silhouette'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'P2845',
+                        name: 'Emily Rodriguez',
+                        age: 42,
+                        gender: 'Female',
+                        image: 'https://kimi-web-img.moonshot.cn/img/media.istockphoto.com/a2a74530386bb9e80979af6604300c945b455f20.jpg',
+                        lastVisit: new Date(Date.now() - 8 * 60 * 60 * 1000),
+                        totalScans: 3,
+                        symptoms: ['Shortness of Breath', 'Fatigue', 'Fever'],
+                        predictions: [
+                            {
+                                date: new Date(Date.now() - 8 * 60 * 60 * 1000),
+                                condition: 'COVID-19',
+                                confidence: 87,
+                                image: 'https://kimi-web-img.moonshot.cn/img/static01.nyt.com/ec45b08a90a293a4b27ea2e5dc4c00ba15c2d1a3.jpg',
+                                notes: 'Ground-glass opacities consistent with COVID-19'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'P2844',
+                        name: 'David Wilson',
+                        age: 56,
+                        gender: 'Male',
+                        image: 'https://kimi-web-img.moonshot.cn/img/media.istockphoto.com/29691aaa01591492755c318d0e2ef58b0db9c556.jpg',
+                        lastVisit: new Date(Date.now() - 24 * 60 * 60 * 1000),
+                        totalScans: 4,
+                        symptoms: ['Chronic Cough', 'Weight Loss'],
+                        predictions: [
+                            {
+                                date: new Date(Date.now() - 24 * 60 * 60 * 1000),
+                                condition: 'Pneumonia',
+                                confidence: 89,
+                                image: 'https://kimi-web-img.moonshot.cn/img/media.springernature.com/3e7b7d562e2d6a62a37533e6d29f726a04ee3962.png',
+                                notes: 'Chronic pneumonia with possible complications'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'P2843',
+                        name: 'Lisa Thompson',
+                        age: 31,
+                        gender: 'Female',
+                        image: 'https://kimi-web-img.moonshot.cn/img/img.freepik.com/8afeddc9522875b6c5fbabcb74c27d9bb11c7500.jpg',
+                        lastVisit: new Date(Date.now() - 48 * 60 * 60 * 1000),
+                        totalScans: 1,
+                        symptoms: ['Annual Physical'],
+                        predictions: [
+                            {
+                                date: new Date(Date.now() - 48 * 60 * 60 * 1000),
+                                condition: 'Normal',
+                                confidence: 98,
+                                image: 'https://kimi-web-img.moonshot.cn/img/heart.thecommonvein.net/2679cf4d8c2dcfc588a6760b2c2e2a1addfe73be.jpg',
+                                notes: 'Completely normal chest X-ray findings'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'P2842',
+                        name: 'Robert Kim',
+                        age: 67,
+                        gender: 'Male',
+                        image: 'https://kimi-web-img.moonshot.cn/img/www.publicdomainpictures.net/9facca847c27cf16d76ffe7a6087cba91ab65eb7.jpg',
+                        lastVisit: new Date(Date.now() - 72 * 60 * 60 * 1000),
+                        totalScans: 5,
+                        symptoms: ['Persistent Fever', 'Chest Pain', 'Difficulty Breathing'],
+                        predictions: [
+                            {
+                                date: new Date(Date.now() - 72 * 60 * 60 * 1000),
+                                condition: 'Pneumonia',
+                                confidence: 93,
+                                image: 'https://kimi-web-img.moonshot.cn/img/www.frontiersin.org/d05d01ca620fb96eaa02a687a94c889d731b016d.jpg',
+                                notes: 'Severe pneumonia requiring immediate attention'
+                            }
+                        ]
+                    }
+                ];
+                
+                this.filteredPatients = [...this.patients];
+            }
+
+            setupEventListeners() {
+                // Search and filter inputs
+                document.getElementById('search-input').addEventListener('input', (e) => {
+                    this.searchTerm = e.target.value.toLowerCase();
+                    this.filterPatients();
+                });
+
+                document.getElementById('condition-filter').addEventListener('change', (e) => {
+                    this.conditionFilter = e.target.value;
+                    this.filterPatients();
+                });
+
+                document.getElementById('date-filter').addEventListener('change', (e) => {
+                    this.dateFilter = e.target.value;
+                    this.filterPatients();
+                });
+
+                // Modal controls
+                document.getElementById('close-modal').addEventListener('click', () => {
+                    this.closeModal();
+                });
+
+                document.getElementById('patient-modal').addEventListener('click', (e) => {
+                    if (e.target.id === 'patient-modal') {
+                        this.closeModal();
+                    }
+                });
+
+                // Action buttons
+                document.getElementById('export-btn').addEventListener('click', () => {
+                    this.exportData();
+                });
+
+                document.getElementById('add-patient-btn').addEventListener('click', () => {
+                    this.showNotification('Add Patient feature coming soon!', 'info');
+                });
+
+                document.getElementById('edit-patient-btn').addEventListener('click', () => {
+                    this.showNotification('Edit Patient feature coming soon!', 'info');
+                });
+
+                document.getElementById('schedule-followup-btn').addEventListener('click', () => {
+                    this.showNotification('Follow-up scheduled!', 'success');
+                });
+
+                document.getElementById('generate-pdf-btn').addEventListener('click', () => {
+                    this.generatePDF();
+                });
+            }
+
+            filterPatients() {
+                this.filteredPatients = this.patients.filter(patient => {
+                    // Search filter
+                    const matchesSearch = !this.searchTerm || 
+                        patient.id.toLowerCase().includes(this.searchTerm) ||
+                        patient.name.toLowerCase().includes(this.searchTerm) ||
+                        patient.symptoms.some(symptom => symptom.toLowerCase().includes(this.searchTerm)) ||
+                        patient.predictions.some(pred => pred.condition.toLowerCase().includes(this.searchTerm));
+
+                    // Condition filter
+                    const matchesCondition = !this.conditionFilter || 
+                        patient.predictions.some(pred => pred.condition === this.conditionFilter);
+
+                    // Date filter
+                    const matchesDate = !this.dateFilter || this.matchesDateFilter(patient.lastVisit, this.dateFilter);
+
+                    return matchesSearch && matchesCondition && matchesDate;
+                });
+
+                this.renderPatients();
+            }
+
+            matchesDateFilter(date, filter) {
+                const now = new Date();
+                const filterDate = new Date();
+                
+                switch (filter) {
+                    case 'today':
+                        return date.toDateString() === now.toDateString();
+                    case 'week':
+                        filterDate.setDate(now.getDate() - 7);
+                        return date >= filterDate;
+                    case 'month':
+                        filterDate.setMonth(now.getMonth() - 1);
+                        return date >= filterDate;
+                    default:
+                        return true;
+                }
+            }
+
+            renderPatients() {
+                const grid = document.getElementById('patients-grid');
+                const loading = document.getElementById('loading-state');
+                const noResults = document.getElementById('no-results');
+
+                // Hide loading state
+                loading.classList.add('hidden');
+
+                if (this.filteredPatients.length === 0) {
+                    grid.innerHTML = '';
+                    noResults.classList.remove('hidden');
+                    return;
+                }
+
+                noResults.classList.add('hidden');
+
+                grid.innerHTML = this.filteredPatients.map(patient => `
+                    <div class="patient-card bg-white rounded-xl shadow-sm border border-gray-200 p-6 cursor-pointer" 
+                         onclick="patientManager.showPatientDetails('${patient.id}')">
+                        <div class="flex items-center space-x-4 mb-4">
+                            <img src="${patient.image}" alt="${patient.name}" class="w-16 h-16 rounded-full object-cover">
+                            <div class="flex-1">
+                                <h3 class="text-lg font-semibold text-gray-900">${patient.name}</h3>
+                                <p class="text-sm text-gray-500 mono">${patient.id}</p>
+                                <p class="text-sm text-gray-600">${patient.age} years • ${patient.gender}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">Last Visit</span>
+                                <span class="text-sm font-medium text-gray-900">${this.formatDate(patient.lastVisit)}</span>
+                            </div>
+                            
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">Total Scans</span>
+                                <span class="text-sm font-medium text-gray-900">${patient.totalScans}</span>
+                            </div>
+                            
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">Latest Condition</span>
+                                <span class="px-2 py-1 rounded-full text-xs font-medium ${this.getConditionColor(patient.predictions[0].condition)}">
+                                    ${patient.predictions[0].condition}
+                                </span>
+                            </div>
+                            
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-gray-600">Confidence</span>
+                                <span class="text-sm font-medium mono">${patient.predictions[0].confidence}%</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 pt-4 border-t border-gray-200">
+                            <div class="flex flex-wrap gap-1">
+                                ${patient.symptoms.slice(0, 3).map(symptom => 
+                                    `<span class="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">${symptom}</span>`
+                                ).join('')}
+                                ${patient.symptoms.length > 3 ? `<span class="text-xs text-gray-500">+${patient.symptoms.length - 3} more</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Animate cards
+                anime({
+                    targets: '.patient-card',
+                    opacity: [0, 1],
+                    translateY: [20, 0],
+                    duration: 600,
+                    delay: anime.stagger(100),
+                    easing: 'easeOutQuart'
+                });
+            }
+
+            showPatientDetails(patientId) {
+                this.currentPatient = this.patients.find(p => p.id === patientId);
+                if (!this.currentPatient) return;
+
+                this.populateModal();
+                document.getElementById('patient-modal').classList.remove('hidden');
+                
+                // Animate modal
+                anime({
+                    targets: '#patient-modal .bg-white',
+                    scale: [0.9, 1],
+                    opacity: [0, 1],
+                    duration: 300,
+                    easing: 'easeOutQuart'
+                });
+            }
+
+            populateModal() {
+                const patient = this.currentPatient;
+                
+                // Basic information
+                document.getElementById('modal-patient-image').src = patient.image;
+                document.getElementById('modal-patient-name').textContent = patient.name;
+                document.getElementById('modal-patient-id').textContent = patient.id;
+                document.getElementById('modal-patient-age').textContent = `${patient.age} years`;
+                document.getElementById('modal-patient-gender').textContent = patient.gender;
+                document.getElementById('modal-patient-last-visit').textContent = this.formatDate(patient.lastVisit);
+                document.getElementById('modal-patient-scans').textContent = patient.totalScans;
+
+                // Symptoms
+                const symptomsContainer = document.getElementById('modal-symptoms');
+                symptomsContainer.innerHTML = patient.symptoms.map(symptom => 
+                    `<span class="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">${symptom}</span>`
+                ).join('');
+
+                // Prediction timeline
+                const timelineContainer = document.getElementById('prediction-timeline');
+                timelineContainer.innerHTML = patient.predictions.map((prediction, index) => `
+                    <div class="timeline-item">
+                        <div class="flex items-start space-x-4">
+                            <div class="timeline-dot w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                                <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="px-2 py-1 rounded-full text-xs font-medium ${this.getConditionColor(prediction.condition)}">
+                                            ${prediction.condition}
+                                        </span>
+                                        <span class="text-sm font-medium mono">${prediction.confidence}%</span>
+                                    </div>
+                                    <p class="text-sm text-gray-600 mb-2">${prediction.notes}</p>
+                                    <p class="text-xs text-gray-500">${this.formatDate(prediction.date)}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            closeModal() {
+                const modal = document.getElementById('patient-modal');
+                
+                anime({
+                    targets: '#patient-modal .bg-white',
+                    scale: [1, 0.9],
+                    opacity: [1, 0],
+                    duration: 200,
+                    easing: 'easeInQuart',
+                    complete: () => {
+                        modal.classList.add('hidden');
+                    }
+                });
+            }
+
+            exportData() {
+                this.showNotification('Exporting patient data...', 'info');
+                
+                // Simulate export process
+                setTimeout(() => {
+                    this.showNotification('Data exported successfully!', 'success');
+                }, 1500);
+            }
+
+            generatePDF() {
+                this.showNotification('Generating PDF report...', 'info');
+                
+                // Simulate PDF generation
+                setTimeout(() => {
+                    this.showNotification('PDF report generated!', 'success');
+                }, 2000);
+            }
+
+            getConditionColor(condition) {
+                switch (condition) {
+                    case 'Pneumonia': return 'text-red-600 bg-red-100';
+                    case 'Normal': return 'text-green-600 bg-green-100';
+                    case 'COVID-19': return 'text-orange-600 bg-orange-100';
+                    default: return 'text-gray-600 bg-gray-100';
+                }
+            }
+
+            formatDate(date) {
+                return new Intl.DateTimeFormat('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }).format(date);
+            }
+
+            initializeAnimations() {
+                // Animate page elements on load
+                anime({
+                    targets: '.bg-white',
+                    opacity: [0, 1],
+                    translateY: [20, 0],
+                    duration: 600,
+                    delay: anime.stagger(100),
+                    easing: 'easeOutQuart'
+                });
+            }
+
+            showNotification(message, type = 'info') {
+                const notification = document.createElement('div');
+                notification.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white font-medium transform translate-x-full transition-transform duration-300 ${
+                    type === 'success' ? 'bg-green-600' :
+                    type === 'error' ? 'bg-red-600' :
+                    type === 'warning' ? 'bg-yellow-600' :
+                    'bg-blue-600'
+                }`;
+                notification.textContent = message;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.style.transform = 'translateX(0)';
+                }, 100);
+                
+                setTimeout(() => {
+                    notification.style.transform = 'translateX(100%)';
+                    setTimeout(() => {
+                        document.body.removeChild(notification);
+                    }, 300);
+                }, 3000);
+            }
+        }
+
+        // Initialize patient manager when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            window.patientManager = new PatientManager();
+        });
+    </script>
+    <script src="main.js"></script>
+</body>
+</html>
